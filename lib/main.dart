@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'signup_screen.dart';
 
 void main() {
   runApp(const AuraApp());
@@ -294,15 +295,30 @@ class LoginScreen extends StatelessWidget {
 
               const Spacer(),
 
-              Center(
-                child: TextButton(
-                  onPressed: () {},
-                  child: const Text(
-                    'New to AURA? Create account',
-                    style: TextStyle(color: white),
-                  ),
-                ),
-              ),
+             Center(
+  child: TextButton(
+    onPressed: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const SignupScreen(),
+        ),
+      );
+    },
+    child: const Text(
+      'New to AURA? Create account',
+      style: TextStyle(color: white),
+    ),
+  ),
+),
+             
+             
+             
+             
+             
+             
+             
+             
             ],
           ),
         ),
