@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'api_service.dart';
 import 'reminder_screen.dart';
 import 'assistant_screen.dart';
+import 'planner_reminders_section.dart';
 
 const Color plannerTeal = Color(0xFF00C4C7);
 const Color plannerPurple = Color(0xFF7950F2);
@@ -431,22 +432,27 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                   userName: widget.userName,
                 )
               : selectedTab == 2
-    ? AssistantScreen(
-        userId: widget.userId,
-      )
-    : _buildPlaceholder(
-        icon: Icons.settings,
-        title: 'Settings',
-      ),
-                
-       bottomNavigationBar: BottomNavigationBar(
+                  ? AssistantScreen(
+                      userId: widget.userId,
+                    )
+                  : _buildPlaceholder(
+                      icon: Icons.settings,
+                      title: 'Settings',
+                    ),
+
+      bottomNavigationBar: BottomNavigationBar(
         currentIndex: selectedTab,
         onTap: (index) {
-          setState(() {
-            selectedTab = index;
-          });
-        },
-        type: BottomNavigationBarType.fixed,
+  setState(() {
+    selectedTab = index;
+  });
+
+  // Refresh activities whenever the Planner tab is opened.
+  if (index == 0) {
+    _loadActivities();
+  }
+},
+         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
         selectedItemColor: plannerPurple,
         unselectedItemColor: Colors.grey,
@@ -744,6 +750,21 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                 onDelete: () => deleteActivity(activity),
               ),
             ),
+
+          const SizedBox(height: 24),
+
+          // REMINDERS PREVIEW IN DAILY PLANNER
+          PlannerRemindersSection(
+            userId: widget.userId,
+            selectedDate: selectedDate,
+            onViewAll: () {
+              setState(() {
+                selectedTab = 1;
+              });
+            },
+          ),
+
+          const SizedBox(height: 20),
         ],
       ),
     );
