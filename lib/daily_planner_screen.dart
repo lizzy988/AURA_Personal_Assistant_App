@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'api_service.dart';
 import 'reminder_screen.dart';
+import 'assistant_screen.dart';
 
 const Color plannerTeal = Color(0xFF00C4C7);
 const Color plannerPurple = Color(0xFF7950F2);
@@ -430,16 +431,15 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                   userName: widget.userName,
                 )
               : selectedTab == 2
-                  ? _buildPlaceholder(
-                      icon: Icons.auto_awesome,
-                      title: 'AURA Assistant',
-                    )
-                  : _buildPlaceholder(
-                      icon: Icons.settings,
-                      title: 'Settings',
-                    ),
-
-      bottomNavigationBar: BottomNavigationBar(
+    ? AssistantScreen(
+        userId: widget.userId,
+      )
+    : _buildPlaceholder(
+        icon: Icons.settings,
+        title: 'Settings',
+      ),
+                
+       bottomNavigationBar: BottomNavigationBar(
         currentIndex: selectedTab,
         onTap: (index) {
           setState(() {

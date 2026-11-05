@@ -241,4 +241,48 @@ class ApiService {
       'reminder_id': reminderId,
     }, 'reminders.php');
   }
+
+  // AURA AI ASSISTANT
+  static Future<String> sendAssistantMessage({
+    required int userId,
+    required String message,
+    required List<Map<String, String>> history,
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/assistant.php'),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'user_id': userId,
+            'message': message,
+            'history': history,
+          }),
+        )
+        .timeout(const Duration(seconds: 90));
+
+    final decoded = jsonDecode(response.body);
+
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('Unexpected response from AURA server.');
+    }
+
+    if (response.statusCode < 200 ||
+        response.statusCode >= 300 ||
+        decoded['success'] != true) {
+      throw Exception(
+        decoded['message'] ?? 'AURA could not process your message.',
+      );
+    }
+
+    final data = decoded['data'];
+
+    if (data is! Map<String, dynamic> ||
+        data['reply'] == null) {
+      throw Exception('AURA returned an empty response.');
+    }
+
+    return data['reply'].toString();
+  }
 }
