@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'api_service.dart';
+import 'reminder_screen.dart';
 
 const Color plannerTeal = Color(0xFF00C4C7);
 const Color plannerPurple = Color(0xFF7950F2);
@@ -36,12 +37,15 @@ class DailyPlannerScreen extends StatefulWidget {
   });
 
   @override
-  State<DailyPlannerScreen> createState() => _DailyPlannerScreenState();
+  State<DailyPlannerScreen> createState() =>
+      _DailyPlannerScreenState();
 }
- 
+
 class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
   DateTime selectedDate = DateUtils.dateOnly(DateTime.now());
   String selectedFilter = 'All';
+
+  int selectedTab = 0;
 
   final List<PlannerActivity> activities = [];
   bool isLoading = true;
@@ -62,15 +66,22 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
     }
 
     try {
-      final data = await ApiService.getActivities(userId: widget.userId);
+      final data =
+          await ApiService.getActivities(userId: widget.userId);
+
       final loadedActivities = data.map((item) {
         final row = Map<String, dynamic>.from(item as Map);
+
         final rawDate = row['scheduled_at']?.toString() ??
             row['due_date']?.toString() ??
             row['start_time']?.toString() ??
             '';
-        final parsedDate = DateTime.parse(rawDate.replaceFirst(' ', 'T'));
-        final rawCompleted = row['completed'] ?? row['status'] ?? false;
+
+        final parsedDate =
+            DateTime.parse(rawDate.replaceFirst(' ', 'T'));
+
+        final rawCompleted =
+            row['completed'] ?? row['status'] ?? false;
 
         final isCompleted = rawCompleted == true ||
             rawCompleted == 1 ||
@@ -89,6 +100,7 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
       }).toList();
 
       if (!mounted) return;
+
       setState(() {
         activities
           ..clear()
@@ -97,15 +109,18 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
       });
     } catch (error) {
       if (!mounted) return;
+
       setState(() {
         isLoading = false;
-        loadError = error.toString().replaceFirst('Exception: ', '');
+        loadError =
+            error.toString().replaceFirst('Exception: ', '');
       });
     }
   }
 
   void _showMessage(String message) {
     if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
@@ -113,9 +128,11 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
 
   List<PlannerActivity> get dailyActivities {
     return activities.where((activity) {
-      return DateUtils.isSameDay(activity.scheduledAt, selectedDate);
+      return DateUtils.isSameDay(
+          activity.scheduledAt, selectedDate);
     }).toList()
-      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+      ..sort((a, b) =>
+          a.scheduledAt.compareTo(b.scheduledAt));
   }
 
   List<PlannerActivity> get filteredActivities {
@@ -166,14 +183,16 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
 
   void changeDate(int days) {
     setState(() {
-      selectedDate = selectedDate.add(Duration(days: days));
+      selectedDate =
+          selectedDate.add(Duration(days: days));
     });
   }
 
   Future<void> addActivity() async {
     final result = await showDialog<PlannerActivity>(
       context: context,
-      builder: (context) => ActivityDialog(selectedDate: selectedDate),
+      builder: (context) =>
+          ActivityDialog(selectedDate: selectedDate),
     );
 
     if (result == null) return;
@@ -188,13 +207,15 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
       );
 
       if (response['success'] != true) {
-        throw Exception(response['message'] ?? 'Could not add activity.');
+        throw Exception(
+            response['message'] ?? 'Could not add activity.');
       }
 
       await _loadActivities();
       _showMessage('Activity added successfully!');
     } catch (error) {
-      _showMessage(error.toString().replaceFirst('Exception: ', ''));
+      _showMessage(
+          error.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -221,13 +242,15 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
       );
 
       if (response['success'] != true) {
-        throw Exception(response['message'] ?? 'Could not update activity.');
+        throw Exception(
+            response['message'] ?? 'Could not update activity.');
       }
 
       await _loadActivities();
       _showMessage('Activity updated successfully!');
     } catch (error) {
-      _showMessage(error.toString().replaceFirst('Exception: ', ''));
+      _showMessage(
+          error.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -240,13 +263,15 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
       );
 
       if (response['success'] != true) {
-        throw Exception(response['message'] ?? 'Could not delete activity.');
+        throw Exception(
+            response['message'] ?? 'Could not delete activity.');
       }
 
       await _loadActivities();
       _showMessage('Activity deleted.');
     } catch (error) {
-      _showMessage(error.toString().replaceFirst('Exception: ', ''));
+      _showMessage(
+          error.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -268,19 +293,22 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
       );
 
       if (response['success'] != true) {
-        throw Exception(response['message'] ?? 'Could not update activity.');
+        throw Exception(
+            response['message'] ?? 'Could not update activity.');
       }
 
       setState(() {
         activity.completed = completed;
       });
     } catch (error) {
-      _showMessage(error.toString().replaceFirst('Exception: ', ''));
+      _showMessage(
+          error.toString().replaceFirst('Exception: ', ''));
     }
   }
 
   Future<void> rescheduleUnfinished() async {
-    final unfinished = dailyActivities.where((a) => !a.completed).toList();
+    final unfinished =
+        dailyActivities.where((a) => !a.completed).toList();
 
     if (unfinished.isEmpty) {
       _showMessage('No unfinished activities to reschedule.');
@@ -289,7 +317,9 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
 
     try {
       for (final activity in unfinished) {
-        final newDate = activity.scheduledAt.add(const Duration(days: 1));
+        final newDate =
+            activity.scheduledAt.add(const Duration(days: 1));
+
         final response = await ApiService.updateActivity(
           userId: widget.userId,
           id: activity.id,
@@ -301,17 +331,21 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
         );
 
         if (response['success'] != true) {
-          throw Exception(response['message'] ?? 'Could not reschedule activity.');
+          throw Exception(response['message'] ??
+              'Could not reschedule activity.');
         }
       }
 
       await _loadActivities();
+
       _showMessage(
         '${unfinished.length} unfinished activities moved to tomorrow.',
       );
     } catch (error) {
       await _loadActivities();
-      _showMessage(error.toString().replaceFirst('Exception: ', ''));
+
+      _showMessage(
+          error.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -325,295 +359,392 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
+  Widget _buildPlaceholder({
+    required IconData icon,
+    required String title,
+  }) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 65, color: plannerPurple),
+          const SizedBox(height: 15),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: plannerNavy,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Coming soon!',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: plannerBackground,
-      appBar: AppBar(
-        backgroundColor: plannerTeal,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'AURA Planner',
-          style: TextStyle(fontWeight: FontWeight.bold),
+
+      appBar: selectedTab == 0
+          ? AppBar(
+              backgroundColor: plannerTeal,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              title: const Text(
+                'AURA Planner',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.calendar_month),
+                  onPressed: selectDate,
+                  tooltip: 'Choose date',
+                ),
+                const SizedBox(width: 8),
+              ],
+            )
+          : null,
+
+      floatingActionButton: selectedTab == 0
+          ? FloatingActionButton.extended(
+              onPressed: addActivity,
+              backgroundColor: plannerPurple,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add),
+              label: const Text('Add Activity'),
+            )
+          : null,
+
+      body: selectedTab == 0
+          ? _buildPlannerBody()
+          : selectedTab == 1
+              ? ReminderScreen(
+                  userId: widget.userId,
+                  userName: widget.userName,
+                )
+              : selectedTab == 2
+                  ? _buildPlaceholder(
+                      icon: Icons.auto_awesome,
+                      title: 'AURA Assistant',
+                    )
+                  : _buildPlaceholder(
+                      icon: Icons.settings,
+                      title: 'Settings',
+                    ),
+
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: selectedTab,
+        onTap: (index) {
+          setState(() {
+            selectedTab = index;
+          });
+        },
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        selectedItemColor: plannerPurple,
+        unselectedItemColor: Colors.grey,
+        selectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.calendar_month),
-            onPressed: selectDate,
-            tooltip: 'Choose date',
+        unselectedLabelStyle: const TextStyle(fontSize: 12),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_month),
+            label: 'Planner',
           ),
-          const SizedBox(width: 8),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.notifications_active_outlined),
+            label: 'Reminders',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.auto_awesome),
+            label: 'Assistant',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings_outlined),
+            label: 'Settings',
+          ),
         ],
       ),
+    );
+  }
 
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: addActivity,
-        backgroundColor: plannerPurple,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('Add Activity'),
-      ),
-
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(18, 20, 18, 100),
-          children: [
-            Text(
-              'Hello, ${widget.userName.isEmpty ? 'there' : widget.userName}! 👋',
-              style: const TextStyle(
-                fontSize: 25,
-                fontWeight: FontWeight.bold,
-                color: plannerNavy,
-              ),
+  Widget _buildPlannerBody() {
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 20, 18, 100),
+        children: [
+          Text(
+            'Hello, ${widget.userName.isEmpty ? 'there' : widget.userName}! 👋',
+            style: const TextStyle(
+              fontSize: 25,
+              fontWeight: FontWeight.bold,
+              color: plannerNavy,
             ),
+          ),
 
-            const SizedBox(height: 6),
+          const SizedBox(height: 6),
 
-            const Text(
-              'Let\'s make today productive.',
-              style: TextStyle(color: Colors.grey, fontSize: 15),
+          const Text(
+            'Let\'s make today productive.',
+            style: TextStyle(color: Colors.grey, fontSize: 15),
+          ),
+
+          const SizedBox(height: 22),
+
+          // DATE SELECTOR
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 14,
             ),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  onPressed: () => changeDate(-1),
+                  icon: const Icon(Icons.chevron_left),
+                ),
 
-            const SizedBox(height: 22),
-
-            // DATE SELECTOR
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 14,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => changeDate(-1),
-                    icon: const Icon(Icons.chevron_left),
-                  ),
-
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: selectDate,
-                      child: Column(
-                        children: [
-                          Text(
-                            formattedDate(selectedDate),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: plannerNavy,
-                            ),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: selectDate,
+                    child: Column(
+                      children: [
+                        Text(
+                          formattedDate(selectedDate),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: plannerNavy,
                           ),
-                          const SizedBox(height: 3),
-                          const Text(
-                            'Tap to choose another date',
-                            style: TextStyle(
-                              color: Colors.grey,
-                              fontSize: 11,
-                            ),
+                        ),
+                        const SizedBox(height: 3),
+                        const Text(
+                          'Tap to choose another date',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 11,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
+                ),
 
-                  IconButton(
-                    onPressed: () => changeDate(1),
-                    icon: const Icon(Icons.chevron_right),
-                  ),
-                ],
-              ),
+                IconButton(
+                  onPressed: () => changeDate(1),
+                  icon: const Icon(Icons.chevron_right),
+                ),
+              ],
             ),
+          ),
 
-            const SizedBox(height: 20),
+          const SizedBox(height: 20),
 
-            // PROGRESS CARD
+          // PROGRESS CARD
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [plannerPurple, Color(0xFF9B79FF)],
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Your daily progress',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '$completedCount of $totalCount activities completed',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    Text(
+                      '${(progress * 100).round()}%',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 9,
+                    backgroundColor: Colors.white30,
+                    valueColor:
+                        const AlwaysStoppedAnimation<Color>(
+                      Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // RESCHEDULE BUTTON
+          OutlinedButton.icon(
+            onPressed: rescheduleUnfinished,
+            icon: const Icon(Icons.event_repeat),
+            label: const Text(
+              'Move unfinished activities to tomorrow',
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: plannerPurple,
+              side: const BorderSide(color: plannerPurple),
+              padding: const EdgeInsets.symmetric(vertical: 13),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // FILTERS
+          const Text(
+            'My Activities',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: plannerNavy,
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          Wrap(
+            spacing: 9,
+            children: ['All', 'Pending', 'Completed'].map((filter) {
+              final selected = selectedFilter == filter;
+
+              return ChoiceChip(
+                label: Text(filter),
+                selected: selected,
+                selectedColor: plannerPurple,
+                backgroundColor: Colors.white,
+                labelStyle: TextStyle(
+                  color: selected ? Colors.white : plannerNavy,
+                  fontWeight: FontWeight.w600,
+                ),
+                onSelected: (_) {
+                  setState(() {
+                    selectedFilter = filter;
+                  });
+                },
+              );
+            }).toList(),
+          ),
+
+          const SizedBox(height: 16),
+
+          // ACTIVITY LIST
+          if (isLoading)
+            const Padding(
+              padding: EdgeInsets.all(30),
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: plannerPurple,
+                ),
+              ),
+            )
+          else if (loadError != null)
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [plannerPurple, Color(0xFF9B79FF)],
-                ),
-                borderRadius: BorderRadius.circular(20),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Your daily progress',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  const Icon(
+                    Icons.cloud_off,
+                    color: Colors.red,
+                    size: 38,
                   ),
-
-                  const SizedBox(height: 12),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '$completedCount of $totalCount activities completed',
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                      Text(
-                        '${(progress * 100).round()}%',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 9,
-                      backgroundColor: Colors.white30,
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        Colors.white,
-                      ),
-                    ),
+                  const SizedBox(height: 10),
+                  Text(loadError!, textAlign: TextAlign.center),
+                  const SizedBox(height: 10),
+                  TextButton.icon(
+                    onPressed: _loadActivities,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Try again'),
                   ),
                 ],
               ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // RESCHEDULE BUTTON
-            OutlinedButton.icon(
-              onPressed: rescheduleUnfinished,
-              icon: const Icon(Icons.event_repeat),
-              label: const Text('Move unfinished activities to tomorrow'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: plannerPurple,
-                side: const BorderSide(color: plannerPurple),
-                padding: const EdgeInsets.symmetric(vertical: 13),
+            )
+          else if (filteredActivities.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
               ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // FILTERS
-            const Text(
-              'My Activities',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: plannerNavy,
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            Wrap(
-              spacing: 9,
-              children: ['All', 'Pending', 'Completed'].map((filter) {
-                final selected = selectedFilter == filter;
-
-                return ChoiceChip(
-                  label: Text(filter),
-                  selected: selected,
-                  selectedColor: plannerPurple,
-                  backgroundColor: Colors.white,
-                  labelStyle: TextStyle(
-                    color: selected ? Colors.white : plannerNavy,
-                    fontWeight: FontWeight.w600,
+              child: const Column(
+                children: [
+                  Icon(
+                    Icons.event_available,
+                    size: 48,
+                    color: plannerPurple,
                   ),
-                  onSelected: (_) {
-                    setState(() {
-                      selectedFilter = filter;
-                    });
-                  },
-                );
-              }).toList(),
-            ),
-
-            const SizedBox(height: 16),
-
-            // ACTIVITY LIST
-            if (isLoading)
-              const Padding(
-                padding: EdgeInsets.all(30),
-                child: Center(
-                  child: CircularProgressIndicator(color: plannerPurple),
-                ),
-              )
-            else if (loadError != null)
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Column(
-                  children: [
-                    const Icon(Icons.cloud_off, color: Colors.red, size: 38),
-                    const SizedBox(height: 10),
-                    Text(loadError!, textAlign: TextAlign.center),
-                    const SizedBox(height: 10),
-                    TextButton.icon(
-                      onPressed: _loadActivities,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Try again'),
+                  SizedBox(height: 12),
+                  Text(
+                    'Nothing here yet!',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: plannerNavy,
                     ),
-                  ],
-                ),
-              )
-            else if (filteredActivities.isEmpty)
-              Container(
-                padding: const EdgeInsets.all(28),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: const Column(
-                  children: [
-                    Icon(
-                      Icons.event_available,
-                      size: 48,
-                      color: plannerPurple,
-                    ),
-                    SizedBox(height: 12),
-                    Text(
-                      'Nothing here yet!',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: plannerNavy,
-                      ),
-                    ),
-                    SizedBox(height: 6),
-                    Text(
-                      'Add an activity to start planning your day.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ],
-                ),
-              )
-            else
-              ...filteredActivities.map(
-                (activity) => ActivityCard(
-                  activity: activity,
-                  onChanged: (value) =>
-                      toggleCompletion(activity, value),
-                  onEdit: () => editActivity(activity),
-                  onDelete: () => deleteActivity(activity),
-                ),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    'Add an activity to start planning your day.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ],
               ),
-          ],
-        ),
+            )
+          else
+            ...filteredActivities.map(
+              (activity) => ActivityCard(
+                activity: activity,
+                onChanged: (value) =>
+                    toggleCompletion(activity, value),
+                onEdit: () => editActivity(activity),
+                onDelete: () => deleteActivity(activity),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -784,7 +915,8 @@ class ActivityDialog extends StatefulWidget {
   });
 
   @override
-  State<ActivityDialog> createState() => _ActivityDialogState();
+  State<ActivityDialog> createState() =>
+      _ActivityDialogState();
 }
 
 class _ActivityDialogState extends State<ActivityDialog> {
@@ -811,7 +943,8 @@ class _ActivityDialogState extends State<ActivityDialog> {
     selectedType = existing?.type ?? 'Task';
     selectedPriority = existing?.priority ?? 'Medium';
 
-    final initialDate = existing?.scheduledAt ?? widget.selectedDate;
+    final initialDate =
+        existing?.scheduledAt ?? widget.selectedDate;
 
     selectedDay = DateUtils.dateOnly(initialDate);
     selectedTime = TimeOfDay.fromDateTime(initialDate);
@@ -1016,7 +1149,9 @@ class _ActivityDialogState extends State<ActivityDialog> {
             backgroundColor: plannerPurple,
             foregroundColor: Colors.white,
           ),
-          child: Text(isEditing ? 'Save Changes' : 'Add Activity'),
+          child: Text(
+            isEditing ? 'Save Changes' : 'Add Activity',
+          ),
         ),
       ],
     );
