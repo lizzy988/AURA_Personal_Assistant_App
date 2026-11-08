@@ -4,6 +4,7 @@ import 'api_service.dart';
 import 'reminder_screen.dart';
 import 'assistant_screen.dart';
 import 'planner_reminders_section.dart';
+import 'settings_screen.dart';
 
 const Color plannerTeal = Color(0xFF00C4C7);
 const Color plannerPurple = Color(0xFF7950F2);
@@ -31,11 +32,20 @@ class PlannerActivity {
 class DailyPlannerScreen extends StatefulWidget {
   final int userId;
   final String userName;
+  final VoidCallback onLogout;
+
+  // NEW: Allows Settings to update the app's global appearance.
+  final void Function({
+    required String themeMode,
+    required String accentColor,
+  }) onThemeChanged;
 
   const DailyPlannerScreen({
     super.key,
     required this.userId,
     this.userName = '',
+    required this.onLogout,
+    required this.onThemeChanged,
   });
 
   @override
@@ -435,24 +445,26 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                   ? AssistantScreen(
                       userId: widget.userId,
                     )
-                  : _buildPlaceholder(
-                      icon: Icons.settings,
-                      title: 'Settings',
+                  : SettingsScreen(
+                      userId: widget.userId,
+                      userName: widget.userName,
+                      onLogout: widget.onLogout,
+                      onThemeChanged: widget.onThemeChanged,
                     ),
 
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: selectedTab,
         onTap: (index) {
-  setState(() {
-    selectedTab = index;
-  });
+          setState(() {
+            selectedTab = index;
+          });
 
-  // Refresh activities whenever the Planner tab is opened.
-  if (index == 0) {
-    _loadActivities();
-  }
-},
-         type: BottomNavigationBarType.fixed,
+          // Refresh activities whenever the Planner tab is opened.
+          if (index == 0) {
+            _loadActivities();
+          }
+        },
+        type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
         selectedItemColor: plannerPurple,
         unselectedItemColor: Colors.grey,
