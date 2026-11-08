@@ -27,17 +27,19 @@ class _AssistantScreenState extends State<AssistantScreen> {
   bool _speechEnabled = false;
   bool _isListening = false;
   bool _speakResponses = true;
+  bool _speechInputEnabled = true;
   bool _isSpeaking = false;
   bool _isThinking = false;
+  bool _isLoadingSettings = true;
+
+  double _speechRate = 0.48;
+  String _assistantStyle = 'friendly';
 
   List<dynamic> activities = [];
   bool isLoadingActivities = false;
   String? activityError;
 
-  // Stores an action that AURA is waiting for the user to confirm.
   Map<String, dynamic>? _pendingAction;
-
-  // Stores whether AURA is waiting for a date or time.
   String? _waitingFor;
 
   final List<Map<String, dynamic>> messages = [
@@ -60,10 +62,145 @@ class _AssistantScreenState extends State<AssistantScreen> {
   void initState() {
     super.initState();
     loadActivities();
+    loadAssistantSettings();
     initializeVoice();
   }
 
+  // ---------------------------------------------------------
+  // ASSISTANT SETTINGS
+  // ---------------------------------------------------------
+
+  bool _readBool(dynamic value, {bool fallback = true}) {
+    if (value == null) return fallback;
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+
+    final text = value.toString().toLowerCase();
+    return text == '1' || text == 'true';
+  }
+
+  Future<void> loadAssistantSettings() async {
+    try {
+      final userId = int.tryParse(widget.userId.toString());
+
+      if (userId == null || userId <= 0) {
+        throw Exception('Invalid user ID.');
+      }
+
+      final settings = await ApiService.getSettings(userId: userId);
+
+      if (!mounted) return;
+
+      final voiceResponses = _readBool(
+        settings['voice_responses'],
+      );
+
+      final speechInput = _readBool(
+        settings['speech_input'],
+      );
+
+      final rate = double.tryParse(
+        settings['speech_rate']?.toString() ?? '',
+      );
+
+      final style = settings['assistant_style']?.toString() ??
+          'friendly';
+
+      setState(() {
+        _speakResponses = voiceResponses;
+        _speechInputEnabled = speechInput;
+        _speechRate = rate == null
+            ? 0.48
+            : rate.clamp(0.1, 1.0).toDouble();
+
+        _assistantStyle = [
+          'friendly',
+          'concise',
+          'detailed',
+        ].contains(style)
+            ? style
+            : 'friendly';
+
+        _isLoadingSettings = false;
+      });
+
+      await _flutterTts.setSpeechRate(_speechRate);
+
+      if (!_speakResponses) {
+        await _flutterTts.stop();
+      }
+
+      if (!_speechInputEnabled && _isListening) {
+        await _speech.stop();
+        if (mounted) {
+          setState(() => _isListening = false);
+        }
+      }
+
+      if (_speechInputEnabled && !_speechEnabled) {
+        await initializeSpeechRecognition();
+      }
+    } catch (e) {
+      debugPrint('Assistant settings error: $e');
+
+      if (mounted) {
+        setState(() => _isLoadingSettings = false);
+      }
+    }
+  }
+
+  String get responseStyleInstruction {
+    switch (_assistantStyle) {
+      case 'concise':
+        return 'Respond in a concise and direct manner. '
+            'Keep answers short, clear and useful. '
+            'Avoid unnecessary explanations unless requested.';
+
+      case 'detailed':
+        return 'Provide detailed, well-explained and helpful responses. '
+            'Use examples and step-by-step explanations where appropriate.';
+
+      case 'friendly':
+      default:
+        return 'Use a warm, friendly, encouraging and conversational tone. '
+            'Be supportive while giving clear and useful answers.';
+    }
+  }
+
+  // ---------------------------------------------------------
+  // VOICE INITIALISATION
+  // ---------------------------------------------------------
+
   Future<void> initializeVoice() async {
+    try {
+      await _flutterTts.setLanguage('en-US');
+      await _flutterTts.setSpeechRate(_speechRate);
+      await _flutterTts.setVolume(1.0);
+      await _flutterTts.setPitch(1.0);
+
+      _flutterTts.setStartHandler(() {
+        if (mounted) setState(() => _isSpeaking = true);
+      });
+
+      _flutterTts.setCompletionHandler(() {
+        if (mounted) setState(() => _isSpeaking = false);
+      });
+
+      _flutterTts.setCancelHandler(() {
+        if (mounted) setState(() => _isSpeaking = false);
+      });
+
+      if (_speechInputEnabled) {
+        await initializeSpeechRecognition();
+      }
+    } catch (e) {
+      debugPrint('Voice initialisation error: $e');
+    }
+  }
+
+  Future<void> initializeSpeechRecognition() async {
+    if (!_speechInputEnabled) return;
+
     try {
       _speechEnabled = await _speech.initialize(
         onStatus: (status) {
@@ -80,34 +217,28 @@ class _AssistantScreenState extends State<AssistantScreen> {
         },
       );
 
-      await _flutterTts.setLanguage('en-US');
-      await _flutterTts.setSpeechRate(0.48);
-      await _flutterTts.setVolume(1.0);
-      await _flutterTts.setPitch(1.0);
-
-      _flutterTts.setStartHandler(() {
-        if (mounted) setState(() => _isSpeaking = true);
-      });
-
-      _flutterTts.setCompletionHandler(() {
-        if (mounted) setState(() => _isSpeaking = false);
-      });
-
-      _flutterTts.setCancelHandler(() {
-        if (mounted) setState(() => _isSpeaking = false);
-      });
-
       if (mounted) setState(() {});
     } catch (e) {
-      debugPrint('Voice initialisation error: $e');
+      debugPrint('Speech recognition initialisation error: $e');
     }
   }
 
   Future<void> toggleListening() async {
     if (_isThinking) return;
 
+    if (!_speechInputEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Speech input is disabled. Enable it in Assistant Preferences.',
+          ),
+        ),
+      );
+      return;
+    }
+
     if (!_speechEnabled) {
-      await initializeVoice();
+      await initializeSpeechRecognition();
 
       if (!_speechEnabled) {
         if (!mounted) return;
@@ -150,6 +281,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
 
           if (result.finalResult) {
             setState(() => _isListening = false);
+
             if (result.recognizedWords.trim().isNotEmpty) {
               sendMessage(result.recognizedWords);
             }
@@ -167,7 +299,10 @@ class _AssistantScreenState extends State<AssistantScreen> {
 
     try {
       await _flutterTts.stop();
+
       if (!_speakResponses || !mounted) return;
+
+      await _flutterTts.setSpeechRate(_speechRate);
       await _flutterTts.speak(response);
     } catch (e) {
       debugPrint('Text to speech error: $e');
@@ -175,9 +310,18 @@ class _AssistantScreenState extends State<AssistantScreen> {
   }
 
   Future<void> toggleVoiceOutput() async {
-    setState(() => _speakResponses = !_speakResponses);
-    if (!_speakResponses) await _flutterTts.stop();
+    final newValue = !_speakResponses;
+
+    setState(() => _speakResponses = newValue);
+
+    if (!newValue) {
+      await _flutterTts.stop();
+    }
   }
+
+  // ---------------------------------------------------------
+  // PLANNER ACTIVITIES
+  // ---------------------------------------------------------
 
   Future<void> loadActivities() async {
     if (!mounted) return;
@@ -189,6 +333,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
 
     try {
       final userId = int.tryParse(widget.userId.toString());
+
       if (userId == null || userId <= 0) {
         throw Exception('Invalid user ID.');
       }
@@ -196,16 +341,19 @@ class _AssistantScreenState extends State<AssistantScreen> {
       final result = await ApiService.getActivities(userId: userId);
 
       if (!mounted) return;
+
       setState(() {
         activities = result;
         isLoadingActivities = false;
       });
     } catch (e) {
       if (!mounted) return;
+
       setState(() {
         isLoadingActivities = false;
         activityError = 'Could not load your planner activities.';
       });
+
       debugPrint('Planner loading error: $e');
     }
   }
@@ -406,8 +554,10 @@ class _AssistantScreenState extends State<AssistantScreen> {
           '',
         )
         .replaceAll(
-          RegExp(r'\b(at\s*)?\d{1,2}(:\d{2})?\s*(am|pm)\b',
-              caseSensitive: false),
+          RegExp(
+            r'\b(at\s*)?\d{1,2}(:\d{2})?\s*(am|pm)\b',
+            caseSensitive: false,
+          ),
           '',
         )
         .replaceAll(
@@ -415,8 +565,10 @@ class _AssistantScreenState extends State<AssistantScreen> {
           '',
         )
         .replaceAll(
-          RegExp(r'\b(low|medium|high)\s+priority\b',
-              caseSensitive: false),
+          RegExp(
+            r'\b(low|medium|high)\s+priority\b',
+            caseSensitive: false,
+          ),
           '',
         )
         .replaceAll(RegExp(r'\s+'), ' ')
@@ -435,7 +587,6 @@ class _AssistantScreenState extends State<AssistantScreen> {
   dynamic findActivity(String message) {
     final text = message.toLowerCase();
 
-    // First try to find an activity whose full title appears in the message.
     for (final activity in activities) {
       final title = activity['title']?.toString().toLowerCase() ?? '';
       if (title.isNotEmpty && text.contains(title)) {
@@ -443,7 +594,6 @@ class _AssistantScreenState extends State<AssistantScreen> {
       }
     }
 
-    // Otherwise compare meaningful words in the message and activity title.
     final ignored = {
       'delete', 'remove', 'cancel', 'update', 'edit', 'change',
       'reschedule', 'move', 'my', 'the', 'a', 'an', 'please',
@@ -468,6 +618,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
           .toSet();
 
       final score = words.intersection(titleWords).length;
+
       if (score > bestScore) {
         bestScore = score;
         bestMatch = activity;
@@ -553,12 +704,12 @@ class _AssistantScreenState extends State<AssistantScreen> {
       );
     } else {
       final activity = action['activity'];
+
       addAssistantMessage(
         'Here is the updated schedule I understood:\n\n'
         'Activity: ${activity['title']}\n'
         'New date and time: ${formatDateTimeForUser(scheduledAt)}\n\n'
-        'Should I save this change?\n'
-        'Reply YES to confirm or NO to cancel.',
+        'Should I save this change?',
       );
     }
   }
@@ -600,14 +751,16 @@ class _AssistantScreenState extends State<AssistantScreen> {
       return;
     }
 
-    if (['yes', 'yes please', 'confirm', 'confirm it', 'save it', 'do it']
-        .contains(text)) {
+    if ([
+      'yes', 'yes please', 'confirm', 'confirm it', 'save it', 'do it'
+    ].contains(text)) {
       await executePendingAction();
       return;
     }
 
-    if (['no', 'no thanks', 'cancel', 'cancel it', 'stop']
-        .contains(text)) {
+    if ([
+      'no', 'no thanks', 'cancel', 'cancel it', 'stop'
+    ].contains(text)) {
       _pendingAction = null;
       _waitingFor = null;
       addAssistantMessage('No problem. I have cancelled that action. 💜');
@@ -625,9 +778,12 @@ class _AssistantScreenState extends State<AssistantScreen> {
     if (action == null) return;
 
     final userId = int.tryParse(widget.userId.toString());
+
     if (userId == null || userId <= 0) {
       _pendingAction = null;
-      addAssistantMessage('Your account session is invalid. Please log in again.');
+      addAssistantMessage(
+        'Your account session is invalid. Please log in again.',
+      );
       return;
     }
 
@@ -690,10 +846,12 @@ class _AssistantScreenState extends State<AssistantScreen> {
     } catch (e) {
       _pendingAction = null;
       _waitingFor = null;
+
       addAssistantMessage(
         'I could not complete that planner action. '
         'Please check your connection and try again.\n\n$e',
       );
+
       debugPrint('Planner action error: $e');
     }
   }
@@ -701,13 +859,11 @@ class _AssistantScreenState extends State<AssistantScreen> {
   Future<bool> handlePlannerCommand(String message) async {
     final text = message.toLowerCase().trim();
 
-    // Handle replies to an action that AURA is already waiting for.
     if (_pendingAction != null) {
       await handlePendingReply(message);
       return true;
     }
 
-    // CREATE
     final createIntent = RegExp(
       r'\b(add|create|schedule|remind me|put|plan)\b',
     ).hasMatch(text);
@@ -750,7 +906,6 @@ class _AssistantScreenState extends State<AssistantScreen> {
       return true;
     }
 
-    // DELETE
     final deleteIntent = RegExp(
       r'\b(delete|remove|cancel)\b',
     ).hasMatch(text);
@@ -775,7 +930,6 @@ class _AssistantScreenState extends State<AssistantScreen> {
       return true;
     }
 
-    // UPDATE OR RESCHEDULE
     final updateIntent = RegExp(
       r'\b(reschedule|move|update|edit|change)\b',
     ).hasMatch(text);
@@ -846,11 +1000,9 @@ class _AssistantScreenState extends State<AssistantScreen> {
     scrollToBottom();
 
     try {
-      // Planner actions are checked before ordinary chat.
       final handled = await handlePlannerCommand(message);
       if (handled) return;
 
-      // Try offline intelligence first.
       if (activityError == null) {
         final offlineReply = OfflineAssistant.getReply(
           message: message,
@@ -863,7 +1015,6 @@ class _AssistantScreenState extends State<AssistantScreen> {
         }
       }
 
-      // Use online AI for other questions.
       final userId = int.tryParse(widget.userId.toString());
 
       if (userId == null || userId <= 0) {
@@ -875,11 +1026,23 @@ class _AssistantScreenState extends State<AssistantScreen> {
       final history = messages
           .take(messages.length - 1)
           .map((message) {
-        return {
-          'role': message['isUser'] == true ? 'user' : 'assistant',
-          'content': message['text'].toString(),
-        };
-      }).toList();
+            return {
+              'role': message['isUser'] == true
+                  ? 'user'
+                  : 'assistant',
+              'content': message['text'].toString(),
+            };
+          }).toList();
+
+      // Send the selected response style as an instruction to the AI.
+      history.insert(0, {
+        'role': 'system',
+        'content':
+            'You are AURA, a personal planning assistant. '
+            '$responseStyleInstruction '
+            'Help the user organise tasks, manage time and stay productive. '
+            'Be accurate, respectful and practical.',
+      });
 
       final reply = await ApiService.sendAssistantMessage(
         userId: userId,
@@ -943,7 +1106,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
   }
 
   // ---------------------------------------------------------
-  // EXISTING AURA DESIGN
+  // AURA DESIGN
   // ---------------------------------------------------------
 
   @override
@@ -1114,11 +1277,13 @@ class _AssistantScreenState extends State<AssistantScreen> {
                           ? 'AURA is speaking...'
                           : _isThinking
                               ? 'AURA is thinking...'
-                              : isLoadingActivities
-                                  ? 'Loading your planner activities...'
-                                  : activityError != null
-                                      ? 'Planner connection unavailable'
-                                      : 'Here to help you plan smarter and stay organised.',
+                              : _isLoadingSettings
+                                  ? 'Loading your preferences...'
+                                  : isLoadingActivities
+                                      ? 'Loading your planner activities...'
+                                      : activityError != null
+                                          ? 'Planner connection unavailable'
+                                          : 'Here to help you plan smarter and stay organised.',
                   style: const TextStyle(
                     color: Colors.white60,
                     fontSize: 11,
@@ -1325,24 +1490,34 @@ class _AssistantScreenState extends State<AssistantScreen> {
           ),
           const SizedBox(width: 8),
           GestureDetector(
-            onTap: _isThinking ? null : toggleListening,
+            onTap: _isThinking || !_speechInputEnabled
+                ? null
+                : toggleListening,
             child: Container(
               width: 46,
               height: 46,
               decoration: BoxDecoration(
-                color: _isListening
-                    ? Colors.redAccent
-                    : purple.withOpacity(0.25),
+                color: !_speechInputEnabled
+                    ? Colors.white10
+                    : _isListening
+                        ? Colors.redAccent
+                        : purple.withOpacity(0.25),
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: _isListening ? Colors.redAccent : purple,
+                  color: !_speechInputEnabled
+                      ? Colors.white24
+                      : _isListening
+                          ? Colors.redAccent
+                          : purple,
                 ),
               ),
               child: Icon(
                 _isListening
                     ? Icons.mic_rounded
                     : Icons.mic_none_rounded,
-                color: Colors.white,
+                color: _speechInputEnabled
+                    ? Colors.white
+                    : Colors.white38,
                 size: 22,
               ),
             ),

@@ -69,6 +69,46 @@ class ApiService {
     }, 'login.php');
   }
 
+
+  // REQUEST PASSWORD RESET CODE
+  static Future<Map<String, dynamic>> requestPasswordReset({
+    required String email,
+  }) async {
+    final result = await _post({
+      'email': email.trim(),
+    }, 'forgot_password.php');
+
+    if (result['success'] != true) {
+      throw Exception(
+        result['message'] ?? 'Could not send reset code.',
+      );
+    }
+
+    return result;
+  }
+
+  // RESET PASSWORD USING EMAIL VERIFICATION CODE
+  static Future<Map<String, dynamic>> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    final result = await _post({
+      'email': email.trim(),
+      'code': code.trim(),
+      'new_password': newPassword,
+    }, 'reset_password.php');
+
+    if (result['success'] != true) {
+      throw Exception(
+        result['message'] ?? 'Could not reset password.',
+      );
+    }
+
+    return result;
+  }
+
+
   // DAILY PLANNER
   static Future<List<dynamic>> getActivities({
     required int userId,
@@ -198,7 +238,7 @@ class ApiService {
     }, 'reminders.php');
   }
 
-  // TOGGLE NOTIFICATION PREFERENCE
+  // TOGGLE NOTIFICATION PREFERENCE FOR AN INDIVIDUAL REMINDER
   static Future<Map<String, dynamic>> setReminderNotification({
     required int userId,
     required int reminderId,
@@ -242,7 +282,130 @@ class ApiService {
     }, 'reminders.php');
   }
 
+  // =====================================================
+  // AURA SETTINGS
+  // =====================================================
+
+  // LOAD USER SETTINGS
+  static Future<Map<String, dynamic>> getSettings({
+    required int userId,
+  }) async {
+    final result = await _post({
+      'action': 'get',
+      'user_id': userId,
+    }, 'settings.php');
+
+    if (result['success'] != true) {
+      throw Exception(
+        result['message'] ?? 'Could not load settings.',
+      );
+    }
+
+    final settings = result['settings'];
+
+    if (settings is! Map<String, dynamic>) {
+      throw Exception('Invalid settings received from server.');
+    }
+
+    return settings;
+  }
+
+  // SAVE USER SETTINGS
+  static Future<Map<String, dynamic>> saveSettings({
+    required int userId,
+    required Map<String, dynamic> settings,
+  }) async {
+    final result = await _post({
+      'action': 'save',
+      'user_id': userId,
+      ...settings,
+    }, 'settings.php');
+
+    if (result['success'] != true) {
+      throw Exception(
+        result['message'] ?? 'Could not save settings.',
+      );
+    }
+
+    return result;
+  }
+
+  // =====================================================
+  // ACCOUNT MANAGEMENT
+  // =====================================================
+
+  // LOAD ACCOUNT PROFILE
+  static Future<Map<String, dynamic>> getAccount({
+    required int userId,
+  }) async {
+    final result = await _post({
+      'action': 'get',
+      'user_id': userId,
+    }, 'account.php');
+
+    if (result['success'] != true) {
+      throw Exception(
+        result['message'] ?? 'Could not load account details.',
+      );
+    }
+
+    final user = result['user'];
+
+    if (user is! Map<String, dynamic>) {
+      throw Exception('Invalid account information received.');
+    }
+
+    return user;
+  }
+
+  // UPDATE NAME AND EMAIL
+  static Future<Map<String, dynamic>> updateProfile({
+    required int userId,
+    required String fullName,
+    required String email,
+  }) async {
+    final result = await _post({
+      'action': 'update_profile',
+      'user_id': userId,
+      'full_name': fullName,
+      'email': email,
+    }, 'account.php');
+
+    if (result['success'] != true) {
+      throw Exception(
+        result['message'] ?? 'Could not update profile.',
+      );
+    }
+
+    return result;
+  }
+
+  // CHANGE PASSWORD
+  static Future<Map<String, dynamic>> changePassword({
+    required int userId,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final result = await _post({
+      'action': 'change_password',
+      'user_id': userId,
+      'current_password': currentPassword,
+      'new_password': newPassword,
+    }, 'account.php');
+
+    if (result['success'] != true) {
+      throw Exception(
+        result['message'] ?? 'Could not change password.',
+      );
+    }
+
+    return result;
+  }
+
+  // =====================================================
   // AURA AI ASSISTANT
+  // =====================================================
+
   static Future<String> sendAssistantMessage({
     required int userId,
     required String message,
